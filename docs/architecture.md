@@ -120,7 +120,6 @@ flowchart LR
 - audit log;
 - happy path;
 - risky или low-confidence эскалация оператору;
-- простой degraded LLM-сценарий, если он нужен для демонстрации.
 
 ## Только дизайн
 

@@ -16,9 +16,11 @@ PoC подтвердит вертикальный сценарий на лока
 
 ## Скоуп на 4 часа
 
-В PoC входят mock-ticket, request identity, простая topic/routing/risk-классификация, локальная retrieval-база, черновик или маршрут, audit log, happy path, risky/low-confidence эскалация и простой сценарий деградации LLM.
+В PoC входят mock-ticket, request identity, детерминированные risk rules, topic/routing PoC-классификация, локальная lexical retrieval-база, детерминированный evidence-grounded draft generator, audit log, happy path и risky/HITL эскалация.
 
-Только проектируются production broker и durable storage, production model serving, отдельный PII-сервис, полноценный monitoring stack, обучение моделей, операторский UI и MLOps-пайплайн.
+Только проектируются внешняя асинхронная LLM-интеграция, реальная реализация LLM outage/retry/backpressure, production broker и durable storage, production model serving, отдельный PII-сервис, полноценный monitoring stack, обучение моделей, операторский UI и MLOps-пайплайн. Поведение при LLM outage демонстрируется на уровне архитектуры и дизайна, поскольку локальный PoC намеренно не имеет внешних зависимостей.
+
+`LOCAL_DECISION_BOUNDARY=0.60` и `MIN_RETRIEVAL_SCORE=0.20` — demo-only fixture boundaries; они не являются калиброванными production thresholds.
 
 ## Бизнес-ценность
 
