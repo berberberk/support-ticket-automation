@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from src.components import Generator, Retriever
 from src.config import AppConfig, load_config
 from src.factory import build_pipeline, build_retriever
+from src.metrics import MetricsCollector
 from src.models import Ticket
 from src.pipeline import SupportPipeline
 
@@ -40,18 +41,23 @@ def create_app(
     retriever: Retriever | None = None,
     audit_path: Path | None = None,
     config: AppConfig | None = None,
+    metrics: MetricsCollector | None = None,
 ) -> FastAPI:
     """Создать FastAPI-оболочку вокруг существующего синхронного конвейера."""
 
     resolved_config = config or load_config()
+    collector = metrics or MetricsCollector()
     if generator is None and retriever is None:
-        pipeline = build_pipeline(resolved_config, audit_path or DEFAULT_AUDIT_PATH)
+        pipeline = build_pipeline(
+            resolved_config, audit_path or DEFAULT_AUDIT_PATH, collector
+        )
     else:
         pipeline = SupportPipeline(
             ROOT / "data" / "kb.json",
             audit_path or DEFAULT_AUDIT_PATH,
             generator=generator,
             retriever=retriever or build_retriever(resolved_config),
+            metrics=collector,
         )
     app = FastAPI(title="Ticket Automation PoC", version="1.0.0")
 
@@ -63,6 +69,10 @@ def create_app(
             "retriever_backend": pipeline.retriever.backend,
             "generator_backend": pipeline.generator.backend,
         }
+
+    @app.get("/metrics")
+    def metrics_snapshot() -> dict[str, object]:
+        return collector.snapshot()
 
     @app.post("/tickets", response_model=TicketResponse)
     def process_ticket(payload: TicketRequest) -> TicketResponse:

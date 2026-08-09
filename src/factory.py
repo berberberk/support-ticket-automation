@@ -12,6 +12,7 @@ from .components import (
     load_kb,
 )
 from .config import AppConfig
+from .metrics import MetricsCollector
 from .pipeline import SupportPipeline
 
 
@@ -47,10 +48,15 @@ def build_generator(config: AppConfig) -> Generator:
     return DeterministicGenerator()
 
 
-def build_pipeline(config: AppConfig, audit_path: Path | None = None) -> SupportPipeline:
+def build_pipeline(
+    config: AppConfig,
+    audit_path: Path | None = None,
+    metrics: MetricsCollector | None = None,
+) -> SupportPipeline:
     return SupportPipeline(
         ROOT / "data" / "kb.json",
         audit_path or ROOT / "runtime" / "api_audit.jsonl",
         retriever=build_retriever(config),
         generator=build_generator(config),
+        metrics=metrics,
     )
