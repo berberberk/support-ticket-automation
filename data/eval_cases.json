@@ -1,0 +1,98 @@
+[
+  {
+    "id": "eval-password",
+    "text": "Как восстановить пароль и снова войти в аккаунт?",
+    "expected_topic": "account_access",
+    "expected_risk": "safe",
+    "expected_decision": "draft_ready",
+    "expected_evidence_id": "kb-password-reset"
+  },
+  {
+    "id": "eval-subscription",
+    "text": "Как отменить подписку до следующего продления?",
+    "expected_topic": "subscription",
+    "expected_risk": "safe",
+    "expected_decision": "draft_ready",
+    "expected_evidence_id": "kb-subscription-cancel"
+  },
+  {
+    "id": "eval-outage",
+    "text": "Сервис недоступен, где проверить информацию о сбое?",
+    "expected_topic": "service_outage",
+    "expected_risk": "safe",
+    "expected_decision": "draft_ready",
+    "expected_evidence_id": "kb-service-outage"
+  },
+  {
+    "id": "eval-payment",
+    "text": "Хочу проверить статус оплаты по карте.",
+    "expected_topic": "payment_status",
+    "expected_risk": "safe",
+    "expected_decision": "draft_ready",
+    "expected_evidence_id": "kb-payment-status"
+  },
+  {
+    "id": "eval-password-followup",
+    "text": "Не могу войти, подскажите, как восстановить пароль.",
+    "expected_topic": "account_access",
+    "expected_risk": "safe",
+    "expected_decision": "draft_ready",
+    "expected_evidence_id": "kb-password-reset"
+  },
+  {
+    "id": "eval-compromise",
+    "text": "Кажется, мой аккаунт взломали: был несанкционированный вход.",
+    "expected_topic": null,
+    "expected_risk": "hard_risk",
+    "expected_decision": "needs_review",
+    "expected_evidence_id": null
+  },
+  {
+    "id": "eval-suspicious-payment",
+    "text": "Я вижу подозрительную операцию и хочу оспорить платёж.",
+    "expected_topic": null,
+    "expected_risk": "hard_risk",
+    "expected_decision": "needs_review",
+    "expected_evidence_id": null
+  },
+  {
+    "id": "eval-credentials",
+    "text": "Просят передать код из СМС для входа в аккаунт.",
+    "expected_topic": null,
+    "expected_risk": "hard_risk",
+    "expected_decision": "needs_review",
+    "expected_evidence_id": null
+  },
+  {
+    "id": "eval-vague",
+    "text": "У меня вопрос, помогите разобраться.",
+    "expected_topic": null,
+    "expected_risk": "safe",
+    "expected_decision": "needs_review",
+    "expected_evidence_id": null
+  },
+  {
+    "id": "eval-unsupported",
+    "text": "Как изменить язык интерфейса приложения?",
+    "expected_topic": null,
+    "expected_risk": "safe",
+    "expected_decision": "needs_review",
+    "expected_evidence_id": null
+  },
+  {
+    "id": "eval-ambiguous",
+    "text": "Не работает и списали деньги, нужна помощь.",
+    "expected_topic": null,
+    "expected_risk": "safe",
+    "expected_decision": "needs_review",
+    "expected_evidence_id": null
+  },
+  {
+    "id": "eval-subscription-short",
+    "text": "Отменить подписку.",
+    "expected_topic": "subscription",
+    "expected_risk": "safe",
+    "expected_decision": "draft_ready",
+    "expected_evidence_id": "kb-subscription-cancel"
+  }
+]

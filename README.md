@@ -37,4 +37,25 @@ python3 --version
 python3 demo.py
 ```
 
-Команда последовательно показывает безопасный FAQ happy path с локальным evidence и детерминированным черновиком, а также risky path с `needs_review` и маршрутом оператору. В PoC classifier — детерминированная keyword-логика, retrieval — маленький локальный lexical token-overlap поиск, generator — локальный deterministic mock/template; production counterparts описаны в документации.
+Команда последовательно показывает безопасный FAQ happy path с локальным evidence и детерминированным черновиком, risky path с `needs_review` и маршрутом оператору, а также generator outage с безопасной эскалацией. В PoC classifier — детерминированная keyword-логика, retrieval — маленький локальный lexical token-overlap поиск, generator — локальный deterministic mock/template; production counterparts описаны в документации.
+
+## Быстрая проверка
+
+```bash
+python3 demo.py
+python3 evaluate.py
+python3 -m unittest discover -s tests -v
+```
+
+`demo.py` показывает happy, risky/HITL и generator outage; `evaluate.py` запускает fixture-based sanity evaluation; `unittest` проверяет ключевые инварианты PoC.
+
+### Что доказывает PoC
+
+- deterministic fast-path routing/risk logic;
+- retrieval-grounded response construction;
+- hard-risk HITL;
+- degraded behavior при недоступности generator;
+- audit trail;
+- fixture-based sanity evaluation.
+
+PoC не демонстрирует production ML generalization, calibrated confidence, real LLM quality или production load characteristics. Эти вопросы покрыты планом оценки и дизайном в [docs/ml.md](docs/ml.md) и [docs/monitoring.md](docs/monitoring.md).

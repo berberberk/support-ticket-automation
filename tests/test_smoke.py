@@ -1,9 +1,12 @@
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 from src.models import Ticket
+from src.components import DeterministicGenerator
 from src.pipeline import SupportPipeline
 
 
@@ -58,6 +61,36 @@ class SmokeTest(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertNotIn(raw_text, audit_text)
         self.assertNotIn("audit-secret@example.com", audit_text)
+
+    def test_generator_unavailable_fails_safe(self) -> None:
+        pipeline = SupportPipeline(
+            ROOT / "data" / "kb.json",
+            self.audit_path,
+            generator=DeterministicGenerator(available=False),
+        )
+
+        result = pipeline.process(
+            Ticket("Как восстановить пароль и снова войти в аккаунт?", ticket_id="outage")
+        )
+
+        self.assertEqual(result["decision"], "needs_review")
+        self.assertEqual(result["route"], "human_operator")
+        self.assertEqual(result["reason"], "generator_unavailable")
+        self.assertEqual(result["generator_status"], "unavailable")
+        self.assertFalse(result["generator_called"])
+        self.assertNotIn("draft", result)
+
+    def test_evaluation_script_runs(self) -> None:
+        completed = subprocess.run(
+            [sys.executable, str(ROOT / "evaluate.py")],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("=== PoC SANITY EVALUATION ===", completed.stdout)
+        self.assertIn("SAFETY: hard-risk automatic drafts=0", completed.stdout)
 
 
 if __name__ == "__main__":

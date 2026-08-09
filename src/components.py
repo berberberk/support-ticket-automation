@@ -29,6 +29,19 @@ _RISK_MARKERS = {
         "account hacked",
         "unauthorized access",
     ),
+    "disputed_financial_operation": (
+        "подозрительная операция",
+        "несанкционированное списание",
+        "не узнаю платеж",
+        "не узнаю платёж",
+        "оспорить платеж",
+        "оспорить платёж",
+    ),
+    "sensitive_credentials": (
+        "сообщить код из смс",
+        "передать код из смс",
+        "пароль от аккаунта",
+    ),
 }
 
 _TOPIC_KEYWORDS = {
@@ -123,15 +136,26 @@ class DeterministicGenerator:
 
     version = GENERATOR_VERSION
 
-    def __init__(self) -> None:
+    def __init__(self, available: bool = True) -> None:
+        self.available = available
         self.calls = 0
 
     def generate(self, evidence: RetrievedEvidence) -> str:
+        if not self.available:
+            raise GeneratorUnavailable("generator_unavailable")
         self.calls += 1
         return (
             f"Черновик PoC по статье «{evidence.title}»: "
             f"{evidence.evidence}"
         )
+
+    @property
+    def status(self) -> str:
+        return "available" if self.available else "unavailable"
+
+
+class GeneratorUnavailable(RuntimeError):
+    """Детерминированная ошибка внешнего генератора для degraded-path PoC."""
 
 
 def grounding_gate(

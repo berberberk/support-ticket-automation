@@ -13,6 +13,7 @@ from .components import (
     RETRIEVAL_VERSION,
     RULES_VERSION,
     DeterministicGenerator,
+    GeneratorUnavailable,
     assess_risk,
     classify_topic,
     grounding_gate,
@@ -20,7 +21,7 @@ from .components import (
     normalize_text,
     retrieve,
 )
-from .models import Classification, Ticket
+from .models import Classification, RetrievedEvidence, Ticket
 
 
 class AuditLogger:
@@ -34,10 +35,15 @@ class AuditLogger:
 
 
 class SupportPipeline:
-    def __init__(self, kb_path: Path, audit_path: Path) -> None:
+    def __init__(
+        self,
+        kb_path: Path,
+        audit_path: Path,
+        generator: DeterministicGenerator | None = None,
+    ) -> None:
         self.documents = load_kb(kb_path)
         self.audit = AuditLogger(audit_path)
-        self.generator = DeterministicGenerator()
+        self.generator = generator or DeterministicGenerator()
 
     @staticmethod
     def _request_id(ticket: Ticket) -> str:
@@ -65,6 +71,7 @@ class SupportPipeline:
         evidence_ids: list[str],
         decision: str,
         escalation_reason: str | None,
+        generator_status: str,
     ) -> None:
         self.audit.write(
             {
@@ -79,6 +86,7 @@ class SupportPipeline:
                 "evidence_ids": evidence_ids,
                 "decision": decision,
                 "escalation_reason": escalation_reason,
+                "generator_status": generator_status,
                 "versions": self._versions(),
             }
         )
@@ -100,6 +108,7 @@ class SupportPipeline:
                 evidence_ids=[],
                 decision="needs_review",
                 escalation_reason=risk.reason,
+                generator_status="not_called",
             )
             return {
                 "request_id": request_id,
@@ -124,7 +133,17 @@ class SupportPipeline:
             )
 
         calls_before = self.generator.calls
-        draft = self.generator.generate(evidence)
+        try:
+            draft = self.generator.generate(evidence)
+        except GeneratorUnavailable:
+            return self._review_result(
+                request_id,
+                ticket,
+                classification,
+                "generator_unavailable",
+                evidence=evidence,
+                generator_status="unavailable",
+            )
         generator_called = self.generator.calls > calls_before
         if not grounding_gate(draft, evidence, risk.status):
             return self._review_result(
@@ -146,6 +165,7 @@ class SupportPipeline:
             evidence_ids=[evidence.document_id],
             decision="draft_ready",
             escalation_reason=None,
+            generator_status=self.generator.status,
         )
         return {
             "request_id": request_id,
@@ -166,7 +186,9 @@ class SupportPipeline:
         classification: Classification,
         reason: str,
         *,
+        evidence: RetrievedEvidence | None = None,
         generator_called: bool = False,
+        generator_status: str = "not_called",
     ) -> dict[str, object]:
         self._write_audit(
             request_id=request_id,
@@ -176,11 +198,12 @@ class SupportPipeline:
             risk_status="safe",
             risk_reason=None,
             confidence=classification.confidence,
-            evidence_ids=[],
+            evidence_ids=[evidence.document_id] if evidence else [],
             decision="needs_review",
             escalation_reason=reason,
+            generator_status=generator_status,
         )
-        return {
+        result = {
             "request_id": request_id,
             "topic": classification.topic,
             "route": "human_operator",
@@ -189,4 +212,8 @@ class SupportPipeline:
             "decision": "needs_review",
             "reason": reason,
             "generator_called": generator_called,
+            "generator_status": generator_status,
         }
+        if evidence:
+            result["evidence"] = [evidence.document_id]
+        return result
