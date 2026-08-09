@@ -1,5 +1,6 @@
 # Автоматизация обработки обращений в поддержку
 [![CI](https://github.com/berberberk/itmo-aith-2026-project-2/actions/workflows/ci.yml/badge.svg)](https://github.com/berberberk/itmo-aith-2026-project-2/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-blue)
 
 ## Что решаем?
 
