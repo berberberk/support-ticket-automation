@@ -175,8 +175,9 @@ class QdrantRetriever:
         url: str | None = None,
         api_key: str | None = None,
         fallback: Retriever | None = None,
+        embedder: object | None = None,
+        client: object | None = None,
     ) -> None:
-        from fastembed import TextEmbedding
         from qdrant_client import QdrantClient
         from qdrant_client.models import Distance, PointStruct, VectorParams
 
@@ -185,8 +186,12 @@ class QdrantRetriever:
         self.status = "available"
         self.collection_name = "support_kb"
         self.embedding_model = embedding_model
-        self.embedder = TextEmbedding(model_name=embedding_model)
-        self.client = (
+        if embedder is None:
+            from fastembed import TextEmbedding
+
+            embedder = TextEmbedding(model_name=embedding_model)
+        self.embedder = embedder
+        self.client = client or (
             QdrantClient(url=url, api_key=api_key)
             if url
             else QdrantClient(":memory:")
@@ -212,8 +217,11 @@ class QdrantRetriever:
         self.client.upsert(
             collection_name=self.collection_name,
             points=[
-                PointStruct(id=str(item["id"]), vector=vector.tolist(), payload=payload)
-                for item, vector, payload in zip(documents, vectors, metadata, strict=True)
+                # Qdrant local принимает только int/UUID; доменный kb_id остаётся в payload.
+                PointStruct(id=index, vector=vector.tolist(), payload=payload)
+                for index, (item, vector, payload) in enumerate(
+                    zip(documents, vectors, metadata, strict=True), start=1
+                )
             ],
             wait=True,
         )
@@ -282,11 +290,13 @@ class OpenRouterGenerator:
         model: str,
         timeout_seconds: float,
         max_tokens: int,
+        http_client: httpx.Client | None = None,
     ) -> None:
         self.api_key = api_key
         self.model = model
         self.timeout_seconds = timeout_seconds
         self.max_tokens = max_tokens
+        self.http_client = http_client or httpx.Client()
         self.status = "available"
         self.calls = 0
         self.last_elapsed_ms: int | None = None
@@ -324,7 +334,7 @@ class OpenRouterGenerator:
         self.calls += 1
         started = time.monotonic()
         try:
-            response = httpx.post(
+            response = self.http_client.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers={"Authorization": f"Bearer {self.api_key}"},
                 json={

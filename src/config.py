@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import os
+from collections.abc import Mapping
 
 from dotenv import load_dotenv
 
@@ -23,20 +24,39 @@ class AppConfig:
     qdrant_api_key: str | None = None
 
 
-def load_config(env_path: Path | None = None) -> AppConfig:
+def _bounded_timeout(value: str) -> float:
+    timeout = float(value)
+    if not 0 < timeout <= 30:
+        raise ValueError("OPENROUTER_TIMEOUT_SECONDS должен быть в диапазоне (0, 30]")
+    return timeout
+
+
+def _bounded_max_tokens(value: str) -> int:
+    max_tokens = int(value)
+    if not 1 <= max_tokens <= 1000:
+        raise ValueError("OPENROUTER_MAX_TOKENS должен быть в диапазоне [1, 1000]")
+    return max_tokens
+
+
+def load_config(
+    env_path: Path | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> AppConfig:
     """Загрузить локальную конфигурацию; ключи не выводятся в логи и ответы API."""
 
     load_dotenv(env_path or ROOT / ".env")
-    values = os.environ
+    values = environ if environ is not None else os.environ
     return AppConfig(
         generator_backend=values.get("GENERATOR_BACKEND", "deterministic").lower(),
         retrieval_backend=values.get("RETRIEVAL_BACKEND", "lexical").lower(),
         openrouter_api_key=values.get("OPENROUTER_API_KEY") or None,
         openrouter_model=values.get("OPENROUTER_MODEL", "openrouter/free"),
-        openrouter_timeout_seconds=float(
+        openrouter_timeout_seconds=_bounded_timeout(
             values.get("OPENROUTER_TIMEOUT_SECONDS", "10")
         ),
-        openrouter_max_tokens=int(values.get("OPENROUTER_MAX_TOKENS", "300")),
+        openrouter_max_tokens=_bounded_max_tokens(
+            values.get("OPENROUTER_MAX_TOKENS", "300")
+        ),
         embedding_model=values.get(
             "EMBEDDING_MODEL",
             "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
