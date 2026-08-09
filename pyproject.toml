@@ -6,6 +6,8 @@ requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
+    "python-dotenv>=1.2.2",
+    "qdrant-client[fastembed]>=1.19.0",
     "uvicorn>=0.52.1",
 ]
 

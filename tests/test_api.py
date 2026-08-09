@@ -21,7 +21,14 @@ class ApiContractTest(unittest.TestCase):
         response = self.client.get("/health")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"status": "ok"})
+        self.assertEqual(
+            response.json(),
+            {
+                "status": "ok",
+                "retriever_backend": "lexical",
+                "generator_backend": "deterministic",
+            },
+        )
 
     def test_safe_ticket_returns_grounded_draft(self) -> None:
         response = self.client.post(

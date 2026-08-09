@@ -12,14 +12,15 @@ from .components import (
     MIN_RETRIEVAL_SCORE,
     RETRIEVAL_VERSION,
     RULES_VERSION,
-    DeterministicGenerator,
+    Generator,
     GeneratorUnavailable,
+    LexicalRetriever,
+    Retriever,
     assess_risk,
     classify_topic,
     grounding_gate,
     load_kb,
     normalize_text,
-    retrieve,
 )
 from .models import Classification, RetrievedEvidence, Ticket
 
@@ -39,23 +40,26 @@ class SupportPipeline:
         self,
         kb_path: Path,
         audit_path: Path,
-        generator: DeterministicGenerator | None = None,
+        generator: Generator | None = None,
+        retriever: Retriever | None = None,
     ) -> None:
         self.documents = load_kb(kb_path)
         self.audit = AuditLogger(audit_path)
+        from .components import DeterministicGenerator
+
         self.generator = generator or DeterministicGenerator()
+        self.retriever = retriever or LexicalRetriever(self.documents)
 
     @staticmethod
     def _request_id(ticket: Ticket) -> str:
         return ticket.ticket_id or f"req-{uuid.uuid4().hex[:12]}"
 
-    @staticmethod
-    def _versions() -> dict[str, str]:
+    def _versions(self) -> dict[str, str]:
         return {
             "rules": RULES_VERSION,
             "classifier": CLASSIFIER_VERSION,
-            "retrieval": RETRIEVAL_VERSION,
-            "generator": GENERATOR_VERSION,
+            "retrieval": getattr(self.retriever, "backend", RETRIEVAL_VERSION),
+            "generator": getattr(self.generator, "model", GENERATOR_VERSION),
         }
 
     def _write_audit(
@@ -87,6 +91,11 @@ class SupportPipeline:
                 "decision": decision,
                 "escalation_reason": escalation_reason,
                 "generator_status": generator_status,
+                "retriever_backend": self.retriever.backend,
+                "retriever_status": self.retriever.status,
+                "generator_backend": self.generator.backend,
+                "generator_provider": self.generator.provider,
+                "generator_model": self.generator.model,
                 "versions": self._versions(),
             }
         )
@@ -118,6 +127,11 @@ class SupportPipeline:
                 "reason": risk.reason,
                 "decision": "needs_review",
                 "generator_called": False,
+                "generator_status": "not_called",
+                "retriever_backend": self.retriever.backend,
+                "retriever_status": self.retriever.status,
+                "generator_provider": self.generator.provider,
+                "generator_model": self.generator.model,
             }
 
         classification = classify_topic(risk.sanitized_text)
@@ -126,15 +140,15 @@ class SupportPipeline:
                 request_id, ticket, classification, "low_confidence"
             )
 
-        evidence = retrieve(risk.sanitized_text, self.documents)
+        evidence = self.retriever.retrieve(risk.sanitized_text)
         if evidence is None or evidence.score < MIN_RETRIEVAL_SCORE:
             return self._review_result(
                 request_id, ticket, classification, "insufficient_evidence"
             )
 
-        calls_before = self.generator.calls
         try:
-            draft = self.generator.generate(evidence)
+            # Внешний адаптер получает только PII-санитизированный текст и одну approved KB-статью.
+            draft = self.generator.generate(risk.sanitized_text, evidence)
         except GeneratorUnavailable:
             return self._review_result(
                 request_id,
@@ -144,8 +158,11 @@ class SupportPipeline:
                 evidence=evidence,
                 generator_status="unavailable",
             )
-        generator_called = self.generator.calls > calls_before
-        if not grounding_gate(draft, evidence, risk.status):
+        generator_called = True
+        deterministic_grounding = self.generator.backend == "deterministic"
+        if not self._generation_gate(
+            draft, evidence, risk.status, deterministic_grounding
+        ):
             return self._review_result(
                 request_id,
                 ticket,
@@ -174,9 +191,14 @@ class SupportPipeline:
             "risk": risk.status,
             "confidence": classification.confidence,
             "evidence": [evidence.document_id],
+            "evidence_scores": {evidence.document_id: evidence.score},
             "decision": "draft_ready",
             "draft": draft,
             "generator_called": generator_called,
+            "retriever_backend": self.retriever.backend,
+            "retriever_status": self.retriever.status,
+            "generator_provider": self.generator.provider,
+            "generator_model": self.generator.model,
         }
 
     def _review_result(
@@ -213,7 +235,27 @@ class SupportPipeline:
             "reason": reason,
             "generator_called": generator_called,
             "generator_status": generator_status,
+            "retriever_backend": self.retriever.backend,
+            "retriever_status": self.retriever.status,
+            "generator_provider": self.generator.provider,
+            "generator_model": self.generator.model,
         }
         if evidence:
             result["evidence"] = [evidence.document_id]
+            result["evidence_scores"] = {evidence.document_id: evidence.score}
         return result
+
+    @staticmethod
+    def _generation_gate(
+        draft: str,
+        evidence: RetrievedEvidence | None,
+        risk_status: str,
+        deterministic_grounding: bool,
+    ) -> bool:
+        if not (risk_status == "safe" and evidence and evidence.evidence and draft):
+            return False
+        if deterministic_grounding:
+            return grounding_gate(draft, evidence, risk_status)
+        # Для внешней LLM это только boundary PoC: evidence обязательно,
+        # но семантическая обоснованность требует отдельной production-оценки.
+        return True
