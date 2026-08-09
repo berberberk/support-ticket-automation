@@ -1,0 +1,13 @@
+[project]
+name = "itmo-aith-2026-project-2"
+version = "0.1.0"
+description = "Прототип автоматизации обработки тикетов поддержки"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "uvicorn>=0.52.1",
+]
+
+[tool.uv]
+package = false
