@@ -34,8 +34,23 @@ def main() -> None:
     )
 
     hard_risk = [(case, result) for case, result in results if case["expected_risk"] == "hard_risk"]
-    true_positive = sum(result["risk"] == "hard_risk" for _, result in hard_risk)
-    false_negative = len(hard_risk) - true_positive
+    predicted_hard_risk = [
+        (case, result) for case, result in results if result["risk"] == "hard_risk"
+    ]
+    true_positive = sum(
+        case["expected_risk"] == "hard_risk" for case, _ in predicted_hard_risk
+    )
+    false_positive = sum(
+        case["expected_risk"] != "hard_risk" for case, _ in predicted_hard_risk
+    )
+    false_negative = sum(
+        case["expected_risk"] == "hard_risk" and result["risk"] != "hard_risk"
+        for case, result in results
+    )
+    true_negative = sum(
+        case["expected_risk"] != "hard_risk" and result["risk"] != "hard_risk"
+        for case, result in results
+    )
 
     expected_review = [
         (case, result) for case, result in results if case["expected_decision"] == "needs_review"
@@ -68,8 +83,14 @@ def main() -> None:
         )
     )
     print(
-        "RISK: expected_hard_risk={} true_positives={} false_negatives={} recall={}".format(
-            len(hard_risk), true_positive, false_negative, _ratio(true_positive, len(hard_risk))
+        "RISK: expected_hard_risk={} TP={} FP={} FN={} TN={} precision={} recall={}".format(
+            len(hard_risk),
+            true_positive,
+            false_positive,
+            false_negative,
+            true_negative,
+            _ratio(true_positive, true_positive + false_positive),
+            _ratio(true_positive, true_positive + false_negative),
         )
     )
     print(
@@ -89,6 +110,46 @@ def main() -> None:
         "NOTE: это fixture-based sanity evaluation детерминированной PoC-логики, "
         "а не оценка production model quality."
     )
+
+    mismatches = []
+    for case, result in results:
+        issues = []
+        if case["expected_topic"] and result["topic"] != case["expected_topic"]:
+            issues.append(
+                "topic: expected={} actual={} stage=classification".format(
+                    case["expected_topic"], result["topic"]
+                )
+            )
+        if result["risk"] != case["expected_risk"]:
+            issues.append(
+                "risk: expected={} actual={} stage=risk_rules reason={}".format(
+                    case["expected_risk"], result["risk"], result.get("reason")
+                )
+            )
+        if result["decision"] != case["expected_decision"]:
+            issues.append(
+                "decision: expected={} actual={} stage=decision reason={}".format(
+                    case["expected_decision"], result["decision"], result.get("reason")
+                )
+            )
+        if case["expected_evidence_id"]:
+            actual_evidence = result.get("evidence", [None])[0]
+            if actual_evidence != case["expected_evidence_id"]:
+                issues.append(
+                    "evidence: expected={} actual={} stage=retrieval reason={}".format(
+                        case["expected_evidence_id"], actual_evidence, result.get("reason")
+                    )
+                )
+        if issues:
+            mismatches.append((case["id"], issues))
+
+    print("MISMATCHES:")
+    if not mismatches:
+        print("  none")
+    for case_id, issues in mismatches:
+        print(f"  {case_id}:")
+        for issue in issues:
+            print(f"    {issue}")
 
 
 if __name__ == "__main__":

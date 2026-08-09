@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from src.models import Ticket
-from src.components import DeterministicGenerator
+from src.components import DeterministicGenerator, assess_risk
 from src.pipeline import SupportPipeline
 
 
@@ -61,6 +61,45 @@ class SmokeTest(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertNotIn(raw_text, audit_text)
         self.assertNotIn("audit-secret@example.com", audit_text)
+
+    def test_pii_is_redacted_before_audit(self) -> None:
+        raw_text = "Как восстановить пароль, email pii@example.com"
+        assessment = assess_risk(raw_text)
+        result = self.pipeline.process(Ticket(raw_text, ticket_id="pii"))
+
+        self.assertNotIn("pii@example.com", assessment.sanitized_text)
+        self.assertIn("[EMAIL_REDACTED]", assessment.sanitized_text)
+        self.assertEqual(result["decision"], "draft_ready")
+        self.assertNotIn("pii@example.com", self.audit_path.read_text(encoding="utf-8"))
+
+    def test_insufficient_evidence_escalates_without_draft(self) -> None:
+        result = self.pipeline.process(
+            Ticket(
+                "Как восстановить зелёный идентификатор пользователя из другого региона сегодня?",
+                ticket_id="no-evidence",
+            )
+        )
+
+        self.assertEqual(result["decision"], "needs_review")
+        self.assertEqual(result["reason"], "insufficient_evidence")
+        self.assertNotIn("draft", result)
+
+    def test_empty_input_fails_closed(self) -> None:
+        result = self.pipeline.process(Ticket("   ", ticket_id="empty"))
+
+        self.assertEqual(result["decision"], "needs_review")
+        self.assertEqual(result["route"], "human_operator")
+        self.assertNotIn("draft", result)
+
+    def test_ambiguous_topic_fails_closed(self) -> None:
+        result = self.pipeline.process(
+            Ticket("Подписка и платёж, нужна помощь.", ticket_id="ambiguous")
+        )
+
+        self.assertEqual(result["topic"], "unknown")
+        self.assertEqual(result["decision"], "needs_review")
+        self.assertEqual(result["reason"], "low_confidence")
+        self.assertNotIn("draft", result)
 
     def test_generator_unavailable_fails_safe(self) -> None:
         pipeline = SupportPipeline(
