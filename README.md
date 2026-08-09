@@ -1,4 +1,5 @@
 # Автоматизация обработки обращений в поддержку
+[![CI](https://github.com/berberberk/itmo-aith-2026-project-2/actions/workflows/ci.yml/badge.svg)](https://github.com/berberberk/itmo-aith-2026-project-2/actions/workflows/ci.yml)
 
 ## Что решаем?
 
