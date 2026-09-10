@@ -1,7 +1,7 @@
 [project]
-name = "itmo-aith-2026-project-2"
+name = "support-ticket-automation"
 version = "0.1.0"
-description = "Прототип автоматизации обработки тикетов поддержки"
+description = "Safety-first PoC for support-ticket routing, grounded drafts, and human escalation."
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.141.1",
